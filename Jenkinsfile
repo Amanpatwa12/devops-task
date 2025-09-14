@@ -1,4 +1,4 @@
-pipeline {
+pipeline { 
     agent any
     environment {
         AWS_ACCOUNT_ID       = "979437352253"
@@ -11,21 +11,13 @@ pipeline {
     }
 
     stages {
-
         stage('Login to ECR') {
             steps {
                 script {
-                    if (env.USE_PUBLIC_ECR.toBoolean()) {
-                        sh '''
-                          aws ecr-public get-login-password --region ${AWS_DEFAULT_REGION} \
-                          | docker login --username AWS --password-stdin public.ecr.aws/${PUBLIC_REPO_ALIAS}
-                        '''
-                    } else {
-                        sh '''
-                          aws ecr get-login-password --region ${AWS_DEFAULT_REGION} \
-                          | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com
-                        '''
-                    }
+                    sh '''
+                      aws ecr get-login-password --region ${AWS_DEFAULT_REGION} \
+                      | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com
+                    '''
                 }
             }
         }
@@ -56,17 +48,10 @@ pipeline {
         stage('Push Docker Image to ECR') {
             steps {
                 script {
-                    if (env.USE_PUBLIC_ECR.toBoolean()) {
-                        sh '''
-                          docker tag ${IMAGE_REPO_NAME}:${IMAGE_TAG} public.ecr.aws/${PUBLIC_REPO_ALIAS}/${IMAGE_REPO_NAME}:${IMAGE_TAG}
-                          docker push public.ecr.aws/${PUBLIC_REPO_ALIAS}/${IMAGE_REPO_NAME}:${IMAGE_TAG}
-                        '''
-                    } else {
-                        sh '''
-                          docker tag ${IMAGE_REPO_NAME}:${IMAGE_TAG} ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${IMAGE_REPO_NAME}:${IMAGE_TAG}
-                          docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${IMAGE_REPO_NAME}:${IMAGE_TAG}
-                        '''
-                    }
+                    sh '''
+                      docker tag ${IMAGE_REPO_NAME}:${IMAGE_TAG} ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${IMAGE_REPO_NAME}:${IMAGE_TAG}
+                      docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${IMAGE_REPO_NAME}:${IMAGE_TAG}
+                    '''
                 }
             }
         }
