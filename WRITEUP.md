@@ -5,7 +5,8 @@
 - **AWS ECS Fargate** – For running containers without managing servers  
 - **AWS ECR** – Docker image storage and registry  
 - **AWS VPC & Subnets** – Networking setup for public/private access  
-- **Security Groups** – Firewall rules to allow container ports  
+- **Security Groups** – Firewall rules to allow container ports
+- **IAM ROLE** – Attcah IAM role for ECS and ECR access policy.
 - **Jenkins** – CI/CD pipeline automation  
 - **Node.js & Express** – Sample web application  
 - **Docker** – Containerization of the app  
