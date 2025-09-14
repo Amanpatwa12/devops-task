@@ -7,8 +7,7 @@ pipeline {
         IMAGE_TAG            = "v1"
         CLUSTER_NAME         = "devops-cluster"
         SERVICE_NAME         = "devops-service"
-        USE_PUBLIC_ECR       = true
-        PUBLIC_REPO_ALIAS    = "<your-public-repo-alias>"
+        USE_PUBLIC_ECR       = false
     }
 
     stages {
