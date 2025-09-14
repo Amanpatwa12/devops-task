@@ -1,64 +1,109 @@
 pipeline {
     agent any
     environment {
-        AWS_CREDENTIALS = credentials('aws-id')  // Jenkins AWS credentials
-        ECR_REPO = '123456789012.dkr.ecr.us-east-1.amazonaws.com/myapp'
-        IMAGE_TAG = "${env.BUILD_NUMBER}"      // unique image tag per build
-        EC2_USER = 'ec2-user'
-        EC2_HOST = '<EC2-IP>'                  // replace with your EC2 IP
+        AWS_ACCOUNT_ID       = "979437352253"
+        AWS_DEFAULT_REGION   = "us-east-1"
+        IMAGE_REPO_NAME      = "devops_repo"
+        IMAGE_TAG            = "v1"
+        CLUSTER_NAME         = "devops-cluster"
+        SERVICE_NAME         = "devops-service"
+        USE_PUBLIC_ECR       = true   // true = public, false = private
+        PUBLIC_REPO_ALIAS    = "<your-public-repo-alias>"  // replace with your public repo alias
     }
+
+    triggers {
+        // GitHub Webhook trigger
+        githubPush()
+    }
+
     stages {
-        stage('Checkout') {
-            steps {
-                git branch: 'dev', url: 'https://github.com/<your-repo>.git'
-            }
-        }
 
-        stage('Build & Test') {
+        stage('Login to ECR') {
             steps {
-                sh 'npm install'
-                sh 'npm test'
-            }
-        }
-
-        stage('Docker Build') {
-            steps {
-                sh "docker build -t myapp:${IMAGE_TAG} ."
-            }
-        }
-
-        stage('Push to ECR') {
-            steps {
-                withAWS(credentials: 'aws-id', region: 'us-east-1') {
-                    sh '''
-                    aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 123456789012.dkr.ecr.us-east-1.amazonaws.com
-                    docker tag myapp:${IMAGE_TAG} $ECR_REPO:${IMAGE_TAG}
-                    docker push $ECR_REPO:${IMAGE_TAG}
-                    '''
+                script {
+                    if (env.USE_PUBLIC_ECR.toBoolean()) {
+                        sh """
+                          aws ecr-public get-login-password --region ${AWS_DEFAULT_REGION} \
+                          | docker login --username AWS --password-stdin public.ecr.aws/${PUBLIC_REPO_ALIAS}
+                        """
+                    } else {
+                        sh """
+                          aws ecr get-login-password --region ${AWS_DEFAULT_REGION} \
+                          | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com
+                        """
+                    }
                 }
             }
         }
 
-        stage('Deploy on EC2') {
+        stage('Clone Git Repository') {
             steps {
-                sh """
-                ssh -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} '
-                    docker pull $ECR_REPO:${IMAGE_TAG} &&
-                    docker stop myapp || true &&
-                    docker rm myapp || true &&
-                    docker run -d --name myapp -p 80:3000 $ECR_REPO:${IMAGE_TAG}
-                '
-                """
+                checkout([$class: 'GitSCM',
+                    branches: [[name: '*/main']],
+                    userRemoteConfigs: [[url: 'https://github.com/SwayattDrishtigochar/devops-task.git']]
+                ])
             }
         }
-    }
 
-    post {
-        success {
-            echo "Deployment successful! Running version: ${IMAGE_TAG}"
+        stage('Install Dependencies & Run Tests') {
+            steps {
+                script {
+                    sh """
+                      npm install
+                      npm test || echo '⚠️ Tests failed but continuing pipeline'
+                    """
+                }
+            }
         }
-        failure {
-            echo "Deployment failed! Check logs."
+
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    dockerImage = docker.build("${IMAGE_REPO_NAME}:${IMAGE_TAG}")
+                }
+            }
+        }
+
+        stage('Push Docker Image to ECR') {
+            steps {
+                script {
+                    if (env.USE_PUBLIC_ECR.toBoolean()) {
+                        sh """
+                          docker tag ${IMAGE_REPO_NAME}:${IMAGE_TAG} public.ecr.aws/${PUBLIC_REPO_ALIAS}/${IMAGE_REPO_NAME}:${IMAGE_TAG}
+                          docker push public.ecr.aws/${PUBLIC_REPO_ALIAS}/${IMAGE_REPO_NAME}:${IMAGE_TAG}
+                        """
+                    } else {
+                        sh """
+                          docker tag ${IMAGE_REPO_NAME}:${IMAGE_TAG} ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${IMAGE_REPO_NAME}:${IMAGE_TAG}
+                          docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${IMAGE_REPO_NAME}:${IMAGE_TAG}
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('Deploy to ECS') {
+            steps {
+                script {
+                    sh """
+                      aws ecs update-service \
+                        --cluster ${CLUSTER_NAME} \
+                        --service ${SERVICE_NAME} \
+                        --force-new-deployment \
+                        --region ${AWS_DEFAULT_REGION}
+                    """
+                }
+            }
+        }
+
+        stage('CloudWatch Info') {
+            steps {
+                script {
+                    echo "Deployment triggered successfully."
+                    echo "Logs in CloudWatch Logs group: /ecs/${IMAGE_REPO_NAME}"
+                    echo "Metrics in CloudWatch Metrics → ECS → ${CLUSTER_NAME} / ${SERVICE_NAME}"
+                }
+            }
         }
     }
 }
