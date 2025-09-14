@@ -7,13 +7,8 @@ pipeline {
         IMAGE_TAG            = "v1"
         CLUSTER_NAME         = "devops-cluster"
         SERVICE_NAME         = "devops-service"
-        USE_PUBLIC_ECR       = true   // true = public, false = private
-        PUBLIC_REPO_ALIAS    = "<your-public-repo-alias>"  // replace with your public repo alias
-    }
-
-    triggers {
-        // GitHub Webhook trigger
-        githubPush()
+        USE_PUBLIC_ECR       = true
+        PUBLIC_REPO_ALIAS    = "<your-public-repo-alias>"
     }
 
     stages {
@@ -22,15 +17,15 @@ pipeline {
             steps {
                 script {
                     if (env.USE_PUBLIC_ECR.toBoolean()) {
-                        sh """
+                        sh '''
                           aws ecr-public get-login-password --region ${AWS_DEFAULT_REGION} \
                           | docker login --username AWS --password-stdin public.ecr.aws/${PUBLIC_REPO_ALIAS}
-                        """
+                        '''
                     } else {
-                        sh """
+                        sh '''
                           aws ecr get-login-password --region ${AWS_DEFAULT_REGION} \
                           | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com
-                        """
+                        '''
                     }
                 }
             }
@@ -38,21 +33,16 @@ pipeline {
 
         stage('Clone Git Repository') {
             steps {
-                checkout([$class: 'GitSCM',
-                    branches: [[name: '*/main']],
-                    userRemoteConfigs: [[url: 'https://github.com/SwayattDrishtigochar/devops-task.git']]
-                ])
+                git branch: 'main', url: 'https://github.com/Amanpatwa12/devops-task.git'
             }
         }
 
         stage('Install Dependencies & Run Tests') {
             steps {
-                script {
-                    sh """
-                      npm install
-                      npm test || echo '⚠️ Tests failed but continuing pipeline'
-                    """
-                }
+                sh '''
+                  npm install
+                  npm test || echo "Tests failed but continuing pipeline"
+                '''
             }
         }
 
@@ -68,15 +58,15 @@ pipeline {
             steps {
                 script {
                     if (env.USE_PUBLIC_ECR.toBoolean()) {
-                        sh """
+                        sh '''
                           docker tag ${IMAGE_REPO_NAME}:${IMAGE_TAG} public.ecr.aws/${PUBLIC_REPO_ALIAS}/${IMAGE_REPO_NAME}:${IMAGE_TAG}
                           docker push public.ecr.aws/${PUBLIC_REPO_ALIAS}/${IMAGE_REPO_NAME}:${IMAGE_TAG}
-                        """
+                        '''
                     } else {
-                        sh """
+                        sh '''
                           docker tag ${IMAGE_REPO_NAME}:${IMAGE_TAG} ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${IMAGE_REPO_NAME}:${IMAGE_TAG}
                           docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${IMAGE_REPO_NAME}:${IMAGE_TAG}
-                        """
+                        '''
                     }
                 }
             }
@@ -84,25 +74,21 @@ pipeline {
 
         stage('Deploy to ECS') {
             steps {
-                script {
-                    sh """
-                      aws ecs update-service \
-                        --cluster ${CLUSTER_NAME} \
-                        --service ${SERVICE_NAME} \
-                        --force-new-deployment \
-                        --region ${AWS_DEFAULT_REGION}
-                    """
-                }
+                sh '''
+                  aws ecs update-service \
+                    --cluster ${CLUSTER_NAME} \
+                    --service ${SERVICE_NAME} \
+                    --force-new-deployment \
+                    --region ${AWS_DEFAULT_REGION}
+                '''
             }
         }
 
         stage('CloudWatch Info') {
             steps {
-                script {
-                    echo "Deployment triggered successfully."
-                    echo "Logs in CloudWatch Logs group: /ecs/${IMAGE_REPO_NAME}"
-                    echo "Metrics in CloudWatch Metrics → ECS → ${CLUSTER_NAME} / ${SERVICE_NAME}"
-                }
+                echo "Deployment triggered successfully."
+                echo "Logs in CloudWatch Logs group: /ecs/${IMAGE_REPO_NAME}"
+                echo "Metrics in CloudWatch Metrics → ECS → ${CLUSTER_NAME} / ${SERVICE_NAME}"
             }
         }
     }
