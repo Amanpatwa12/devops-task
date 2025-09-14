@@ -20,9 +20,9 @@
    - **Issue:** Fargate task didn’t have a public IP and Security Group blocked port 3000  
    - **Solution:** Enabled `assignPublicIp=ENABLED` for the task and allowed TCP port 3000 in the security group  
 
-3. **Docker build issues on Windows**  
-   - **Issue:** Local Docker setup not available  
-   - **Solution:** Built and pushed Docker images from an EC2 instance  
+3. **Permission not granted**  
+   - **Issue:** ECS and ECR dont have full access.
+   - **Solution:** Attached the IAM role with proper access.
 
 ## Possible Improvements
 - Use **Terraform** or **CloudFormation** to automate infrastructure setup  
