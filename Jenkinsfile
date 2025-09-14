@@ -5,8 +5,8 @@ pipeline {
         AWS_DEFAULT_REGION   = "us-east-1"
         IMAGE_REPO_NAME      = "devops_repo"
         IMAGE_TAG            = "v1"
-        CLUSTER_NAME         = "devops-cluster"
-        SERVICE_NAME         = "devops-service"
+        CLUSTER_NAME         = "devops-ec2-cluster"
+        SERVICE_NAME         = "devops-task-service-pj4gq7zi"
         USE_PUBLIC_ECR       = false
     }
 
