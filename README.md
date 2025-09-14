@@ -1,6 +1,6 @@
 # Logo Server
 
-A simple Express.js web server that serves the Swa logo image.
+A simple Express.js web server that serves the  logo image.
 
 ## What is this app?
 
