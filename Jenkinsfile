@@ -8,7 +8,7 @@ pipeline {
         CLUSTER_NAME         = "devops-cluster"
         SERVICE_NAME         = "devops-service"
         USE_PUBLIC_ECR       = true   // true = public, false = private
-        PUBLIC_REPO_ALIAS    = "<your-public-repo-alias>"  // replace with your public repo alias
+        PUBLIC_REPO_ALIAS    = "<your-public-repo-alias>"  // replace with your public repo alia
     }
 
     triggers {
